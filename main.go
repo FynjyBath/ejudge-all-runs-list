@@ -407,7 +407,7 @@ func main() {
 			if r.SubmissionUnix > 0 {
 				submittedAt = time.UnixMicro(int64(r.SubmissionUnix)).Format(time.RFC3339)
 			}
-			contestURL := strings.TrimRight(cfg.BaseURL, "/") + fmt.Sprintf("/new-master?contest_id=%d", contestID)
+			contestURL := strings.TrimRight(cfg.BaseURL, "/") + fmt.Sprintf("/new-judge?contest_id=%d", contestID)
 			rows = append(rows, runRow{
 				Contest:     contestName,
 				ContestID:   contestID,
