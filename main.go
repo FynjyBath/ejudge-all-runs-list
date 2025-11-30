@@ -62,6 +62,17 @@ type listRunsResult struct {
 	FilteredRuns int   `json:"filtered_runs"`
 }
 
+type runRow struct {
+	Contest     string `json:"contest"`
+	ContestID   int    `json:"contest_id"`
+	RunID       int    `json:"run_id"`
+	SubmittedAt string `json:"submitted_at"`
+	User        string `json:"user"`
+	Problem     string `json:"problem"`
+	Result      string `json:"result"`
+	ContestURL  string `json:"contest_url"`
+}
+
 type run struct {
 	RunID          int    `json:"run_id"`
 	ContestID      int    `json:"contest_id"`
@@ -320,6 +331,7 @@ func main() {
 
 	client := newAPIClient(*baseURL, *token)
 	ctx := context.Background()
+	var rows []runRow
 
 	for _, contestID := range ids {
 		contestName, err := client.fetchContestName(ctx, contestID)
@@ -341,8 +353,6 @@ func main() {
 			return runs[i].SubmissionUnix > runs[j].SubmissionUnix
 		})
 
-		fmt.Printf("Contest %d — %s (runs: %d)\n", contestID, contestName, len(runs))
-		fmt.Println("run_id\tuser\tproblem\tstatus\tscore")
 		for _, r := range runs {
 			user := r.UserLogin
 			if user == "" {
@@ -360,8 +370,28 @@ func main() {
 			if score == "" {
 				score = fmt.Sprintf("%d", r.SavedScore)
 			}
-			fmt.Printf("%d\t%s\t%s\t%s\t%s\n", r.RunID, user, prob, status, score)
+			submittedAt := ""
+			if r.SubmissionUnix > 0 {
+				submittedAt = time.UnixMicro(int64(r.SubmissionUnix)).Format(time.RFC3339)
+			}
+			contestURL := strings.TrimRight(*baseURL, "/") + fmt.Sprintf("/ej/contest/%d", contestID)
+			rows = append(rows, runRow{
+				Contest:     contestName,
+				ContestID:   contestID,
+				RunID:       r.RunID,
+				SubmittedAt: submittedAt,
+				User:        user,
+				Problem:     prob,
+				Result:      fmt.Sprintf("%s %s", status, score),
+				ContestURL:  contestURL,
+			})
 		}
-		fmt.Println()
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(rows); err != nil {
+		fmt.Fprintln(os.Stderr, "encode result:", err)
+		os.Exit(1)
 	}
 }
