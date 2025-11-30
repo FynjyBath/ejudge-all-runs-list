@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -332,6 +333,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "contest %d: %v\n", contestID, err)
 			continue
 		}
+
+		sort.Slice(runs, func(i, j int) bool {
+			if runs[i].SubmissionUnix == runs[j].SubmissionUnix {
+				return runs[i].RunID > runs[j].RunID
+			}
+			return runs[i].SubmissionUnix > runs[j].SubmissionUnix
+		})
 
 		fmt.Printf("Contest %d — %s (runs: %d)\n", contestID, contestName, len(runs))
 		fmt.Println("run_id\tuser\tproblem\tstatus\tscore")
