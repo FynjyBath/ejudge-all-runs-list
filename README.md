@@ -47,7 +47,7 @@ go run ./main.go --config config.json --filter "user_login like 'ivan%'"
     "user": "ivan",
     "problem": "A",
     "result": "OK 100",
-    "contest_url": "https://example.com/ej/contest/42"
+    "contest_url": "https://example.com/new-master?contest_id=42"
   },
   {
     "contest": "Algorithms 101",
@@ -57,7 +57,7 @@ go run ./main.go --config config.json --filter "user_login like 'ivan%'"
     "user": "maria",
     "problem": "B",
     "result": "WA 0",
-    "contest_url": "https://example.com/ej/contest/42"
+    "contest_url": "https://example.com/new-master?contest_id=42"
   }
 ]
 ```
