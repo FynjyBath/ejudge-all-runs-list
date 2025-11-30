@@ -92,6 +92,39 @@ type run struct {
 	SubmissionUnix int    `json:"run_time_us"`
 }
 
+type config struct {
+	BaseURL     string `json:"base_url"`
+	Token       string `json:"token"`
+	Contests    string `json:"contests"`
+	ContestFile string `json:"contest_file"`
+	ContestDir  string `json:"contest_dir"`
+	PageSize    int    `json:"page_size"`
+	FieldMask   int    `json:"field_mask"`
+}
+
+func loadConfig(path string) (*config, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open config: %w", err)
+	}
+	defer file.Close()
+
+	var cfg config
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(&cfg); err != nil {
+		return nil, fmt.Errorf("decode config: %w", err)
+	}
+
+	if cfg.PageSize <= 0 {
+		cfg.PageSize = 200
+	}
+	if cfg.BaseURL == "" {
+		return nil, errors.New("base_url is required in config")
+	}
+
+	return &cfg, nil
+}
+
 func newAPIClient(baseURL, token string) *apiClient {
 	return &apiClient{
 		baseURL: strings.TrimRight(baseURL, "/"),
@@ -307,29 +340,29 @@ func parseContestIDs(commaSeparated, filePath, dirPath string) ([]int, error) {
 	}
 
 	if len(ids) == 0 {
-		return nil, errors.New("no contest ids provided; use --contests, --contest-file, or --contest-dir")
+		return nil, errors.New("no contest ids provided in config (contests, contest_file, or contest_dir)")
 	}
 	return ids, nil
 }
 
 func main() {
-	baseURL := flag.String("base-url", os.Getenv("EJUDGE_BASE_URL"), "Base EJUDGE URL, e.g. https://your-host")
-	token := flag.String("token", os.Getenv("EJUDGE_TOKEN"), "Authorization token (also via EJUDGE_TOKEN env)")
-	contestList := flag.String("contests", "", "Comma separated contest IDs")
-	contestFile := flag.String("contest-file", "", "Path to file with contest IDs (one per line)")
-	contestDir := flag.String("contest-dir", "", "Directory with contest folders named by numeric ID (e.g. /home/judges)")
+	configPath := flag.String("config", "config.json", "Path to config file with base URL, token, and contest options")
 	filterExpr := flag.String("filter", "", "Filter expression passed to list-runs")
-	pageSize := flag.Int("page-size", 200, "Page size for run listing")
-	fieldMask := flag.Int("field-mask", 0, "Optional field mask for list-runs")
 	flag.Parse()
 
-	ids, err := parseContestIDs(*contestList, *contestFile, *contestDir)
+	cfg, err := loadConfig(*configPath)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 
-	client := newAPIClient(*baseURL, *token)
+	ids, err := parseContestIDs(cfg.Contests, cfg.ContestFile, cfg.ContestDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	client := newAPIClient(cfg.BaseURL, cfg.Token)
 	ctx := context.Background()
 	var rows []runRow
 
@@ -340,7 +373,7 @@ func main() {
 			continue
 		}
 
-		runs, err := client.listRuns(ctx, contestID, *filterExpr, *pageSize, *fieldMask)
+		runs, err := client.listRuns(ctx, contestID, *filterExpr, cfg.PageSize, cfg.FieldMask)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "contest %d: %v\n", contestID, err)
 			continue
@@ -374,7 +407,7 @@ func main() {
 			if r.SubmissionUnix > 0 {
 				submittedAt = time.UnixMicro(int64(r.SubmissionUnix)).Format(time.RFC3339)
 			}
-			contestURL := strings.TrimRight(*baseURL, "/") + fmt.Sprintf("/ej/contest/%d", contestID)
+			contestURL := strings.TrimRight(cfg.BaseURL, "/") + fmt.Sprintf("/ej/contest/%d", contestID)
 			rows = append(rows, runRow{
 				Contest:     contestName,
 				ContestID:   contestID,
