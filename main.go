@@ -98,7 +98,6 @@ type config struct {
 	Contests    string `json:"contests"`
 	ContestFile string `json:"contest_file"`
 	ContestDir  string `json:"contest_dir"`
-	PageSize    int    `json:"page_size"`
 	FieldMask   int    `json:"field_mask"`
 }
 
@@ -113,10 +112,6 @@ func loadConfig(path string) (*config, error) {
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("decode config: %w", err)
-	}
-
-	if cfg.PageSize <= 0 {
-		cfg.PageSize = 200
 	}
 	if cfg.BaseURL == "" {
 		return nil, errors.New("base_url is required in config")
@@ -195,51 +190,28 @@ func (c *apiClient) fetchContestName(ctx context.Context, contestID int) (string
 	return name, nil
 }
 
-func (c *apiClient) listRuns(ctx context.Context, contestID int, filter string, pageSize, fieldMask int) ([]run, error) {
-	var allRuns []run
-	first := 1
-
-	for {
-		params := url.Values{}
-		params.Set("contest_id", strconv.Itoa(contestID))
-		if filter != "" {
-			params.Set("filter_expr", filter)
-		}
-		if pageSize > 0 {
-			params.Set("first_run", strconv.Itoa(first))
-			params.Set("last_run", strconv.Itoa(first+pageSize-1))
-		}
-		if fieldMask > 0 {
-			params.Set("field_mask", strconv.Itoa(fieldMask))
-		}
-
-		var reply listRunsReply
-		if err := c.get(ctx, masterListRunsPath, params, &reply); err != nil {
-			return nil, err
-		}
-		if !reply.OK {
-			return nil, fmt.Errorf("contest %d: %s", contestID, formatAPIError(reply.Error))
-		}
-		if reply.Result == nil {
-			break
-		}
-
-		allRuns = append(allRuns, reply.Result.Runs...)
-		if len(reply.Result.Runs) == 0 {
-			break
-		}
-
-		// Stop when pagination reaches the end; fall back to size-based stopping if last_run isn't provided.
-		if reply.Result.LastRun <= reply.Result.FirstRun {
-			break
-		}
-		first = reply.Result.LastRun + 1
-		if reply.Result.FilteredRuns > 0 && len(allRuns) >= reply.Result.FilteredRuns {
-			break
-		}
+func (c *apiClient) listRuns(ctx context.Context, contestID int, filter string, fieldMask int) ([]run, error) {
+	params := url.Values{}
+	params.Set("contest_id", strconv.Itoa(contestID))
+	if filter != "" {
+		params.Set("filter_expr", filter)
+	}
+	if fieldMask > 0 {
+		params.Set("field_mask", strconv.Itoa(fieldMask))
 	}
 
-	return allRuns, nil
+	var reply listRunsReply
+	if err := c.get(ctx, masterListRunsPath, params, &reply); err != nil {
+		return nil, err
+	}
+	if !reply.OK {
+		return nil, fmt.Errorf("contest %d: %s", contestID, formatAPIError(reply.Error))
+	}
+	if reply.Result == nil {
+		return nil, nil
+	}
+
+	return reply.Result.Runs, nil
 }
 
 func formatAPIError(err *apiError) string {
@@ -373,7 +345,7 @@ func main() {
 			continue
 		}
 
-		runs, err := client.listRuns(ctx, contestID, *filterExpr, cfg.PageSize, cfg.FieldMask)
+		runs, err := client.listRuns(ctx, contestID, *filterExpr, cfg.FieldMask)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "contest %d: %v\n", contestID, err)
 			continue
