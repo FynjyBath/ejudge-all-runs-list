@@ -17,7 +17,6 @@
   "contests": "42,43",
   "contest_file": "contests.txt",
   "contest_dir": "/home/judges",
-  "page_size": 500,
   "field_mask": 0
 }
 ```
