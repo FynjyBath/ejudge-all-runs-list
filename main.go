@@ -214,8 +214,17 @@ func formatAPIError(err *apiError) string {
 	return strings.Join(parts, " ")
 }
 
-func parseContestIDs(commaSeparated, filePath string) ([]int, error) {
+func parseContestIDs(commaSeparated, filePath, dirPath string) ([]int, error) {
 	var ids []int
+	seen := make(map[int]bool)
+
+	addID := func(id int) {
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+
 	if commaSeparated != "" {
 		for _, token := range strings.Split(commaSeparated, ",") {
 			token = strings.TrimSpace(token)
@@ -226,7 +235,7 @@ func parseContestIDs(commaSeparated, filePath string) ([]int, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid contest id %q: %w", token, err)
 			}
-			ids = append(ids, id)
+			addID(id)
 		}
 	}
 
@@ -247,15 +256,46 @@ func parseContestIDs(commaSeparated, filePath string) ([]int, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid contest id %q in %s: %w", line, filePath, err)
 			}
-			ids = append(ids, id)
+			addID(id)
 		}
 		if err := scanner.Err(); err != nil {
 			return nil, fmt.Errorf("read contest file: %w", err)
 		}
 	}
 
+	if dirPath != "" {
+		entries, err := os.ReadDir(dirPath)
+		if err != nil {
+			return nil, fmt.Errorf("read contest dir: %w", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if name == "" {
+				continue
+			}
+			allDigits := true
+			for _, ch := range name {
+				if ch < '0' || ch > '9' {
+					allDigits = false
+					break
+				}
+			}
+			if !allDigits {
+				continue
+			}
+			id, err := strconv.Atoi(name)
+			if err != nil {
+				return nil, fmt.Errorf("invalid contest dir name %q: %w", name, err)
+			}
+			addID(id)
+		}
+	}
+
 	if len(ids) == 0 {
-		return nil, errors.New("no contest ids provided; use --contests or --contest-file")
+		return nil, errors.New("no contest ids provided; use --contests, --contest-file, or --contest-dir")
 	}
 	return ids, nil
 }
@@ -265,12 +305,13 @@ func main() {
 	token := flag.String("token", os.Getenv("EJUDGE_TOKEN"), "Authorization token (also via EJUDGE_TOKEN env)")
 	contestList := flag.String("contests", "", "Comma separated contest IDs")
 	contestFile := flag.String("contest-file", "", "Path to file with contest IDs (one per line)")
+	contestDir := flag.String("contest-dir", "", "Directory with contest folders named by numeric ID (e.g. /home/judges)")
 	filterExpr := flag.String("filter", "", "Filter expression passed to list-runs")
 	pageSize := flag.Int("page-size", 200, "Page size for run listing")
 	fieldMask := flag.Int("field-mask", 0, "Optional field mask for list-runs")
 	flag.Parse()
 
-	ids, err := parseContestIDs(*contestList, *contestFile)
+	ids, err := parseContestIDs(*contestList, *contestFile, *contestDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
