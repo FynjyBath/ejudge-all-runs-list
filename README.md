@@ -35,12 +35,29 @@ go run ./main.go --config config.json --filter "user_login like 'ivan%'"
 * `--config` — путь к JSON-конфигурации (по умолчанию `config.json`).
 * `--filter` — `filter_expr`, который передаётся в Ejudge для выборки посылок.
 
-Выводится таблица по каждому контесту: `run_id`, пользователь, задача, статус и баллы. Строки отсортированы по времени отправки (самые новые сверху). Например:
+Выводится JSON-массив строк с указанием контеста, пользователя, задачи, статуса и баллов. Строки отсортированы по времени отправки (самые новые сверху). Например:
 
-```
-Contest 42 — Algorithms 101 (runs: 3)
-run_id    user   problem   status   score
-123       ivan   A         OK       100
-122       maria  B         WA       0
-121       guest  A         CE       0
+```json
+[
+  {
+    "contest": "Algorithms 101",
+    "contest_id": 42,
+    "run_id": 123,
+    "submitted_at": "2024-05-28T10:00:12Z",
+    "user": "ivan",
+    "problem": "A",
+    "result": "OK 100",
+    "contest_url": "https://example.com/ej/contest/42"
+  },
+  {
+    "contest": "Algorithms 101",
+    "contest_id": 42,
+    "run_id": 122,
+    "submitted_at": "2024-05-28T09:55:00Z",
+    "user": "maria",
+    "problem": "B",
+    "result": "WA 0",
+    "contest_url": "https://example.com/ej/contest/42"
+  }
+]
 ```
