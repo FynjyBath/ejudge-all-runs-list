@@ -376,9 +376,9 @@ func main() {
 				score = fmt.Sprintf("%d", r.SavedScore)
 			}
 			submittedAt := ""
-			if r.SubmissionUnix > 0 {
-				submittedAt = time.UnixMicro(int64(r.SubmissionUnix)).Format(time.RFC3339)
-			}
+                        if r.SubmissionUnix > 0 {
+                                submittedAt = time.UnixMicro(int64(r.SubmissionUnix)).Format("02.01.06 15:04")
+                        }
 			contestURL := strings.TrimRight(cfg.BaseURL, "/") + fmt.Sprintf("/new-judge?contest_id=%d", contestID)
 			rows = append(rows, runRow{
 				Contest:     contestName,
